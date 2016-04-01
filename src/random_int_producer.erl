@@ -45,10 +45,10 @@ terminate(shutdown, _State) -> ok.
 %% Functions
 %% ===================================================================
 
-generate_rand_int(LB, UB) -> LB + random:uniform(UB - LB).
-
 generator() ->
   RandInt = generate_rand_int(10, 20),
   io:format("Random integer: ~p~n", [RandInt]),
   timer:sleep(5000),
   generator().
+
+generate_rand_int(LB, UB) -> LB + random:uniform(UB - LB).
