@@ -1,3 +1,5 @@
 .idea
 random-int-generator.iml
 ebin/*.beam
+deps/*
+.rebar
