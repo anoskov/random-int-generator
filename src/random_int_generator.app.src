@@ -1,0 +1,12 @@
+{application, random_int_generator,
+ [
+  {description, ""},
+  {vsn, "1"},
+  {registered, []},
+  {applications, [
+                  kernel,
+                  stdlib
+                 ]},
+  {mod, { random_int_generator_app, []}},
+  {env, []}
+ ]}.
