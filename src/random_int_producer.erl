@@ -35,5 +35,4 @@ handle_info(Info, State) ->
 code_change(_OldVsn, State, _Extra) ->
   {ok, State}.
 
-terminate(_Reason, _State)
-  -> ok.
+terminate(_Reason, _State) -> ok.
