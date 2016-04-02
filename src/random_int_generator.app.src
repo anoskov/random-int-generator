@@ -2,7 +2,7 @@
  [
   {description, ""},
   {vsn, "1"},
-  {registered, []},
+  {registered, [random_int_generator_sup]},
   {applications, [
                   kernel,
                   stdlib
