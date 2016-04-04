@@ -14,6 +14,9 @@
 
 -export([start_link/0, init/1, terminate/2, generator/1, controller/0]).
 
+-define(NUMBER_LIMIT, list_to_integer(os:getenv("NUMBER_LIMIT"))).
+-define(RANDOM_NUM_RANGE, list_to_integer(os:getenv("RANDOM_NUM_RANGE"))).
+
 %% ===================================================================
 %% Callbacks
 %% ===================================================================
@@ -50,11 +53,11 @@ terminate(shutdown, _State) -> ok.
 generator(CtrlPid) ->
   receive
     {CtrlPid, {ok, Count}} ->
-      CtrlPid ! {self(), {generate_rand_int(10, 20), Count+1}},
+      CtrlPid ! {self(), {generate_rand_int(2), Count+1}},
       generator(CtrlPid);
     {CtrlPid, {sleep, Time}} ->
       timer:sleep(Time),
-      CtrlPid ! {self(), {generate_rand_int(10, 20), 1}},
+      CtrlPid ! {self(), {generate_rand_int(2), 1}},
       generator(CtrlPid);
     _ ->
       ok
@@ -68,13 +71,13 @@ controller() ->
     {From, {Number, Count}} ->
       io:format("Random integer: ~p~n", [Number]),
       io:format("Number count:   ~p~n", [Count]),
-      case Count >= 5 of
+      case Count >= ?NUMBER_LIMIT of
         false ->
           From ! {self(), {ok, Count}};
         true ->
-          From ! {self(), {sleep, 10000}}
+          From ! {self(), {sleep, 1000}}
       end,
       controller()
   end.
 
-generate_rand_int(LB, UB) -> LB + random:uniform(UB - LB).
+generate_rand_int(LB) -> LB + random:uniform(?RANDOM_NUM_RANGE - LB).
