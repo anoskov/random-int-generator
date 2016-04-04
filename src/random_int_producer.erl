@@ -12,7 +12,7 @@
 
 -author("anoskov").
 
--export([start_link/0, init/1, terminate/2]).
+-export([start_link/0, init/1, terminate/2, generator/1, controller/0]).
 
 %% ===================================================================
 %% Callbacks
@@ -24,7 +24,9 @@ start_link() ->
 init(_Args) ->
   io:format("Initializing producer server...~n"),
   process_flag(trap_exit, true),
-  spawn_link(fun generator/0),
+  CtrlPid = spawn_link(?MODULE, controller, []),
+  GeneratorPid = spawn_link(?MODULE, generator, [CtrlPid]),
+  CtrlPid ! {run, GeneratorPid},
   {ok, dict:new()}.
 
 handle_call(_Args, _From, State) ->
@@ -45,10 +47,35 @@ terminate(shutdown, _State) -> ok.
 %% Functions
 %% ===================================================================
 
-generator() ->
-  RandInt = generate_rand_int(10, 20),
-  io:format("Random integer: ~p~n", [RandInt]),
-  timer:sleep(5000),
-  generator().
+generator(CtrlPid) ->
+  receive
+    {CtrlPid, {ok, Count}} ->
+      CtrlPid ! {self(), {generate_rand_int(10, 20), Count+1}},
+      generator(CtrlPid);
+    {CtrlPid, {sleep, Time}} ->
+      timer:sleep(Time),
+      CtrlPid ! {self(), {generate_rand_int(10, 20), 1}},
+      generator(CtrlPid);
+    _ ->
+      ok
+  end.
+
+controller() ->
+  receive
+    {run, GeneratorPid} ->
+      GeneratorPid ! {self(), {ok, 0}},
+      controller();
+    {From, {Number, Count}} ->
+      io:format("Random integer: ~p~n", [Number]),
+      io:format("Number count:   ~p~n", [Count]),
+      io:format("Numbers Length:   ~p~n", [application:get_env(random_int_generator_app, numbersRange)]),
+      case Count >= 5 of
+        false ->
+          From ! {self(), {ok, Count}};
+        true ->
+          From ! {self(), {sleep, 10000}}
+      end,
+      controller()
+  end.
 
 generate_rand_int(LB, UB) -> LB + random:uniform(UB - LB).
