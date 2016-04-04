@@ -68,7 +68,6 @@ controller() ->
     {From, {Number, Count}} ->
       io:format("Random integer: ~p~n", [Number]),
       io:format("Number count:   ~p~n", [Count]),
-      io:format("Numbers Length:   ~p~n", [application:get_env(random_int_generator_app, numbersRange)]),
       case Count >= 5 of
         false ->
           From ! {self(), {ok, Count}};
