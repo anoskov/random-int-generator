@@ -66,18 +66,23 @@ generator(CtrlPid) ->
 controller() ->
   receive
     {run, GeneratorPid} ->
+      put(startIterationTimestamp, get_timestamp()),
       GeneratorPid ! {self(), {ok, 0}},
       controller();
     {From, {Number, Count}} ->
-      io:format("Random integer: ~p~n", [Number]),
-      io:format("Number count:   ~p~n", [Count]),
       case Count >= ?NUMBER_LIMIT of
         false ->
           From ! {self(), {ok, Count}};
         true ->
-          From ! {self(), {sleep, 1000}}
+          SleepTime = 1000 - (get_timestamp() - erase(startIterationTimestamp)),
+          From ! {self(), {sleep, SleepTime}},
+          put(startIterationTimestamp, get_timestamp() + SleepTime)
       end,
       controller()
   end.
 
 generate_rand_int(LB) -> LB + random:uniform(?RANDOM_NUM_RANGE - LB).
+
+get_timestamp() ->
+  {Mega, Sec, Micro} = os:timestamp(),
+  (Mega*1000000 + Sec)*1000 + round(Micro/1000).
