@@ -1,0 +1,7 @@
+export NUMBER_LIMIT=3000
+export NUM_UPPER_BOUND=50
+
+export REDIS_HOST=127.0.0.1
+export REDIS_PORT=6379
+export REDIS_DB=0
+export REDIS_QUEUE_KEY=test1
