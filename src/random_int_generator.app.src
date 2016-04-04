@@ -8,5 +8,5 @@
                   stdlib
                  ]},
   {mod, { random_int_generator_app, []}},
-  {env, []}
+  {env, [{numbersLength, 5}]}
  ]}.
