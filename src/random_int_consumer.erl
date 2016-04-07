@@ -14,7 +14,7 @@
 
 -export([start_link/0, init/1, terminate/2]).
 
--export([]).
+-export([consumer/2, filter/1, pusher/1]).
 
 -record(redis_conf, {host, port, db}).
 
@@ -38,8 +38,9 @@ init(_Args) ->
   RC = #redis_conf{host = ?REDIS_HOST, port = ?REDIS_PORT, db = ?REDIS_DB},
   {ok, RedisClient} = eredis:start_link(RC#redis_conf.host, RC#redis_conf.port, RC#redis_conf.db),
 
-  ConsumerPid    = spawn_link(?MODULE, consumer, [RedisClient]),
-  ConsumerPid ! {run, RedisClient},
+  PusherPid      = spawn_link(?MODULE, pusher, [RedisClient]),
+  FilterPid      = spawn_link(?MODULE, filter, [PusherPid]),
+  ConsumerPid    = spawn_link(?MODULE, consumer, [RedisClient, FilterPid]),
 
   {ok, dict:new()}.
 
@@ -49,8 +50,38 @@ terminate(shutdown, _State) -> ok.
 %% Functions
 %% ===================================================================
 
-consumer(RedisClient) ->
+consumer(RedisClient, FilterPid) ->
+  case eredis:q(RedisClient, ["LPOP", ?REDIS_QUEUE_KEY]) of
+    {ok, undefined} ->
+      ok;
+    {ok, Number} ->
+      FilterPid ! {filter, binary_to_integer(Number)}
+  end,
+  consumer(RedisClient, FilterPid).
+
+
+filter(PusherPid) ->
   receive
-    {run, RedisClient} ->
-      consumer(RedisClient)
+    {filter, Number} ->
+      case isPrime(Number) of
+        true ->
+          PusherPid ! {push, Number};
+        false ->
+          io:format("Number ~p is not prime~n", [Number])
+      end,
+      filter(PusherPid)
   end.
+
+pusher(RedisClient) ->
+  receive
+    {push, Number} ->
+      io:format("Number ~p is prime~n", [Number]),
+      pusher(RedisClient)
+  end.
+
+isPrime(N,M) when N == M -> true;
+isPrime(N,M) when N rem M == 0 -> false;
+isPrime(N,M) -> isPrime(N,M+1).
+
+isPrime(N) when N < 2 -> false;
+isPrime(N) when N rem 1 == 0 -> isPrime(N,2).
