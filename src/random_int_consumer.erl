@@ -67,7 +67,7 @@ filter(PusherPid) ->
         true ->
           PusherPid ! {push, Number};
         false ->
-          io:format("Number ~p is not prime~n", [Number])
+          ok
       end,
       filter(PusherPid)
   end.
@@ -75,7 +75,6 @@ filter(PusherPid) ->
 pusher(RedisClient) ->
   receive
     {push, Number} ->
-      io:format("Number ~p is prime~n", [Number]),
       case eredis:q(RedisClient, ["SADD", ?REDIS_RESULT_SET_KEY, Number]) of
         {ok, _} ->
           ok
