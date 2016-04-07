@@ -1,10 +1,14 @@
-# Random Integer generator and natural number filter
+# Random Integer generator and primes filter
 
 ## Compile
 
 $ rebar get-deps
 
 $ rebar compile
+
+## Run tests
+
+$ rebar compile eunit
 
 ## Create a release
 
