@@ -48,18 +48,6 @@ init(_Args) ->
 
   {ok, dict:new()}.
 
-handle_call(_Args, _From, State) ->
-  {reply, State}.
-
-handle_cast(stop, State) ->
-  {noreply, State}.
-
-handle_info(_Info, State) ->
-  {noreply, State}.
-
-code_change(_OldVsn, State, _Extra) ->
-  {ok, State}.
-
 terminate(shutdown, _State) -> ok.
 
 %% ===================================================================
@@ -94,7 +82,6 @@ controller(PusherPid) ->
           PusherPid ! {push, Number},
           SleepTime = 1000 - (get_timestamp() - erase(startIterationTimestamp)),
           put(startIterationTimestamp, get_timestamp() + SleepTime),
-          io:format("Time ~p~n", [SleepTime]),
           From ! {self(), {sleep, SleepTime}}
       end,
       controller(PusherPid)
