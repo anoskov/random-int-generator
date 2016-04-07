@@ -9,7 +9,7 @@
 %% Application callbacks
 %% ===================================================================
 
-start(_StartType, _StartArgs) ->
+start(normal, _StartArgs) ->
     random_int_generator_sup:start_link().
 
 stop(_State) ->
