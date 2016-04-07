@@ -3,4 +3,5 @@ random-int-generator.iml
 ebin/*.beam
 deps/*
 .rebar
+.eunit
 rel

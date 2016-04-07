@@ -3,7 +3,7 @@
   {description, ""},
   {vsn, "1"},
   {modules, [gen_server]},
-  {registered, [random_int_generator_sup]},
+  {registered, [random_int_generator_sup, random_int_consumer, random_int_producer]},
   {applications, [
                   kernel,
                   stdlib
