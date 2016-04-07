@@ -20,7 +20,7 @@
 
 -define(REDIS_HOST, os:getenv("REDIS_HOST")).
 -define(REDIS_PORT, list_to_integer(os:getenv("REDIS_PORT"))).
--define(REDIS_DB, os:getenv("REDIS_DB")).
+-define(REDIS_DB, list_to_integer(os:getenv("REDIS_DB"))).
 -define(REDIS_QUEUE_KEY, os:getenv("REDIS_QUEUE_KEY")).
 -define(REDIS_RESULT_SET_KEY, os:getenv("REDIS_RESULT_SET_KEY")).
 
@@ -33,6 +33,13 @@ start_link() ->
 
 init(_Args) ->
   io:format("Initializing consumer server...~n"),
+  process_flag(trap_exit, true),
+
+  RC = #redis_conf{host = ?REDIS_HOST, port = ?REDIS_PORT, db = ?REDIS_DB},
+  {ok, RedisClient} = eredis:start_link(RC#redis_conf.host, RC#redis_conf.port, RC#redis_conf.db),
+
+  ConsumerPid    = spawn_link(?MODULE, consumer, [RedisClient]),
+  ConsumerPid ! {run, RedisClient},
 
   {ok, dict:new()}.
 
@@ -41,3 +48,9 @@ terminate(shutdown, _State) -> ok.
 %% ===================================================================
 %% Functions
 %% ===================================================================
+
+consumer(RedisClient) ->
+  receive
+    {run, RedisClient} ->
+      consumer(RedisClient)
+  end.
