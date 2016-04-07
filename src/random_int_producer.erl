@@ -88,27 +88,24 @@ controller(PusherPid) ->
     {From, {Number, Count}} ->
       case Count >= ?NUMBER_LIMIT of
         false ->
-          PusherPid ! {self(), { push, Number }},
+          PusherPid ! {push, Number},
           From ! {self(), {ok, Count}};
         true ->
-          PusherPid ! {self(), { push, Number }},
+          PusherPid ! {push, Number},
           SleepTime = 1000 - (get_timestamp() - erase(startIterationTimestamp)),
-          From ! {self(), {sleep, SleepTime}},
-          put(startIterationTimestamp, get_timestamp() + SleepTime)
+          put(startIterationTimestamp, get_timestamp() + SleepTime),
+          io:format("Time ~p~n", [SleepTime]),
+          From ! {self(), {sleep, SleepTime}}
       end,
-      controller(PusherPid);
-    {PusherPid, {ok, stored}} ->
-      ok
+      controller(PusherPid)
   end.
 
 pusher(RedisClient) ->
   receive
-    {From, {push, Number}} ->
+    {push, Number} ->
       case eredis:q(RedisClient, ["LPUSH", ?REDIS_QUEUE_KEY , Number]) of
         {ok, _} ->
-          From ! {ok, stored};
-        _ ->
-          From ! {error}
+          ok
       end,
       pusher(RedisClient)
   end.
