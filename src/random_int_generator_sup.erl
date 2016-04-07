@@ -24,7 +24,11 @@ init([]) ->
     {random_int_producer, start_link, []},
     permanent, 10000, worker,
     [random_int_producer]},
+  Consumer =  {random_int_consumer,
+    {random_int_consumer, start_link, []},
+    permanent, 10000, worker,
+    [random_int_consumer]},
   RestartStrategy = {one_for_one, 5, 10},
-  Childrens = [Producer],
+  Childrens = [Producer, Consumer],
   {ok, {RestartStrategy, Childrens}}.
 
