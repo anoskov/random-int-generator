@@ -14,7 +14,7 @@
 
 -export([start_link/0, init/1, terminate/2]).
 
--export([consumer/2, filter/1, pusher/1]).
+-export([consumer/2, filter/1, pusher/1, is_prime/1]).
 
 -record(redis_conf, {host, port, db}).
 
@@ -63,7 +63,7 @@ consumer(RedisClient, FilterPid) ->
 filter(PusherPid) ->
   receive
     {filter, Number} ->
-      case isPrime(Number) of
+      case is_prime(Number) of
         true ->
           PusherPid ! {push, Number};
         false ->
@@ -82,9 +82,9 @@ pusher(RedisClient) ->
       pusher(RedisClient)
   end.
 
-isPrime(N,M) when N == M -> true;
-isPrime(N,M) when N rem M == 0 -> false;
-isPrime(N,M) -> isPrime(N,M+1).
+is_prime(N,M) when N == M -> true;
+is_prime(N,M) when N rem M == 0 -> false;
+is_prime(N,M) -> is_prime(N,M+1).
 
-isPrime(N) when N < 2 -> false;
-isPrime(N) when N rem 1 == 0 -> isPrime(N,2).
+is_prime(N) when N < 2 -> false;
+is_prime(N) when N rem 1 == 0 -> is_prime(N,2).

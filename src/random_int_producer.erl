@@ -14,7 +14,7 @@
 
 -export([start_link/0, init/1, terminate/2]).
 
--export([generator/1, controller/1, pusher/1]).
+-export([generator/1, controller/1, pusher/1, generate_rand_int/1]).
 
 -record(redis_conf, {host, port, db}).
 
