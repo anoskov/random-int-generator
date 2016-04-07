@@ -23,7 +23,7 @@
 
 -define(REDIS_HOST, os:getenv("REDIS_HOST")).
 -define(REDIS_PORT, list_to_integer(os:getenv("REDIS_PORT"))).
--define(REDIS_DB, os:getenv("REDIS_DB")).
+-define(REDIS_DB, list_to_integer(os:getenv("REDIS_DB"))).
 -define(REDIS_QUEUE_KEY, os:getenv("REDIS_QUEUE_KEY")).
 
 %% ===================================================================
@@ -38,7 +38,7 @@ init(_Args) ->
   process_flag(trap_exit, true),
 
   RC = #redis_conf{host = ?REDIS_HOST, port = ?REDIS_PORT, db = ?REDIS_DB},
-  {ok, RedisClient} = eredis:start_link(),
+  {ok, RedisClient} = eredis:start_link(RC#redis_conf.host, RC#redis_conf.port, RC#redis_conf.db),
 
   PusherPid    = spawn_link(?MODULE, pusher, [RedisClient]),
   CtrlPid      = spawn_link(?MODULE, controller, [PusherPid]),
