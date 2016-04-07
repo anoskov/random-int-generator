@@ -76,6 +76,10 @@ pusher(RedisClient) ->
   receive
     {push, Number} ->
       io:format("Number ~p is prime~n", [Number]),
+      case eredis:q(RedisClient, ["SADD", ?REDIS_RESULT_SET_KEY, Number]) of
+        {ok, _} ->
+          ok
+      end,
       pusher(RedisClient)
   end.
 
