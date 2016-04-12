@@ -117,16 +117,6 @@ controller(PusherPid) ->
       controller(PusherPid)
   end.
 
-pusher(RedisClient) ->
-  receive
-    {push, Number} ->
-      case eredis:q(RedisClient, ["LPUSH", ?REDIS_QUEUE_KEY , Number]) of
-        {ok, _} ->
-          ok
-      end,
-      pusher(RedisClient)
-  end.
-
 
 generate_rand_int(LB) -> LB + random:uniform(?NUM_UPPER_BOUND - LB).
 
