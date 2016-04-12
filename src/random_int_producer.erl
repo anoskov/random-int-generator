@@ -52,10 +52,10 @@ init(_Args) ->
   process_flag(trap_exit, true),
 
   RC = #redis_conf{host = ?REDIS_HOST, port = ?REDIS_PORT, db = ?REDIS_DB},
-  {ok, RedisClient} = eredis:start_link(RC#redis_conf.host, RC#redis_conf.port, RC#redis_conf.db),
+  {ok, RedisPid} = eredis:start_link(RC#redis_conf.host, RC#redis_conf.port, RC#redis_conf.db),
+  register(redis, RedisPid),
 
-  State = dict:store(redis_client, RedisClient, dict:new()),
-  {ok, State}.
+  {ok, dict:new()}.
 
 handle_call({start, Service}, _From, State) ->
   case whereis(Service) of
@@ -68,20 +68,20 @@ handle_call({start, Service}, _From, State) ->
   end;
 
 handle_call({push, Number}, _From, State) ->
-  case dict:find(redis_client, State) of
-    {ok, RedisClient} ->
-      eredis:q(RedisClient, ["LPUSH", ?REDIS_QUEUE_KEY , Number]),
-      { reply, ok, State };
-    {error} ->
-      { reply, {error, "Redis client not initialized or died"}, State }
+  case whereis(redis) of
+    undefined ->
+      { reply, {error, "redis process not found"}, State };
+    Pid ->
+      eredis:q(Pid, ["LPUSH", ?REDIS_QUEUE_KEY , Number]),
+      { reply, ok, State }
   end.
 
 handle_cast({push, Number}, State) ->
-  case dict:find(redis_client, State) of
-    {ok, RedisClient} ->
-      eredis:q(RedisClient, ["LPUSH", ?REDIS_QUEUE_KEY , Number]);
-    {error} ->
-      io:format("Redis client not initialized or died")
+  case whereis(redis) of
+    undefined ->
+      io:format("Redis client not initialized or died");
+    Pid ->
+      eredis:q(Pid, ["LPUSH", ?REDIS_QUEUE_KEY , Number])
   end,
   { noreply, State }.
 
