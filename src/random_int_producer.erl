@@ -12,8 +12,8 @@
 
 -author("anoskov").
 
--export([start_link/0, init/1, terminate/2]).
-
+-export([push/1, push_async/1]).
+-export([start_link/0, init/1, terminate/2, handle_call/3, handle_cast/2]).
 -export([generator/1, controller/1, pusher/1, generate_rand_int/1]).
 
 -record(redis_conf, {host, port, db}).
@@ -27,6 +27,17 @@
 -define(REDIS_QUEUE_KEY, os:getenv("REDIS_QUEUE_KEY")).
 
 %% ===================================================================
+%% API
+%% ===================================================================
+
+push(Number) ->
+  gen_server:call(?MODULE, { push, Number }).
+
+push_async(Number) ->
+  gen_server:cast(?MODULE, { push, Number }).
+
+
+%% ===================================================================
 %% Callbacks
 %% ===================================================================
 
@@ -37,16 +48,35 @@ init(_Args) ->
   io:format("Initializing producer server...~n"),
   process_flag(trap_exit, true),
 
-  RC = #redis_conf{host = ?REDIS_HOST, port = ?REDIS_PORT, db = ?REDIS_DB},
-  {ok, RedisClient} = eredis:start_link(RC#redis_conf.host, RC#redis_conf.port, RC#redis_conf.db),
+   RC = #redis_conf{host = ?REDIS_HOST, port = ?REDIS_PORT, db = ?REDIS_DB},
+   {ok, RedisClient} = eredis:start_link(RC#redis_conf.host, RC#redis_conf.port, RC#redis_conf.db),
 
-  PusherPid    = spawn_link(?MODULE, pusher, [RedisClient]),
-  CtrlPid      = spawn_link(?MODULE, controller, [PusherPid]),
-  GeneratorPid = spawn_link(?MODULE, generator, [CtrlPid]),
+%%
+%%  PusherPid    = spawn_link(?MODULE, pusher, [RedisClient]),
+%%  CtrlPid      = spawn_link(?MODULE, controller, [PusherPid]),
+%%  GeneratorPid = spawn_link(?MODULE, generator, [CtrlPid]),
+%%
+%%  CtrlPid ! {run, GeneratorPid},
+  State = dict:store(redis_client, RedisClient, dict:new()),
+  {ok, State}.
 
-  CtrlPid ! {run, GeneratorPid},
+handle_call({push, Number}, _From, State) ->
+  case dict:find(redis_client, State) of
+    {ok, RedisClient} ->
+      eredis:q(RedisClient, ["LPUSH", ?REDIS_QUEUE_KEY , Number]),
+      { reply, ok, State };
+    {error} ->
+      { reply, {error, "Redis client not initialized or died"}, State }
+  end.
 
-  {ok, dict:new()}.
+handle_cast({push, Number}, State) ->
+  case dict:find(redis_client, State) of
+    {ok, RedisClient} ->
+      eredis:q(RedisClient, ["LPUSH", ?REDIS_QUEUE_KEY , Number]);
+    {error} ->
+      io:format("Redis client not initialized or died")
+  end,
+  { noreply, State }.
 
 terminate(shutdown, _State) -> ok.
 
