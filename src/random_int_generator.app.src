@@ -3,11 +3,22 @@
   {description, ""},
   {vsn, "1"},
   {modules, [gen_server]},
-  {registered, [random_int_generator_sup, random_int_consumer, random_int_producer]},
+  {registered, [random_int_generator_sup]},
   {applications, [
                   kernel,
                   stdlib
                  ]},
   {mod, { random_int_generator_app, []}},
-  {env, [{numbersLength, 5}]}
+  {env, [
+    {pools, [
+      {storage_pool, [
+        {size, 5},
+        {max_overflow, 10}
+      ], [
+        {host, "127.0.0.1"},
+        {port, 6379},
+        {db, 0}
+      ]}
+    ]}
+  ]}
  ]}.
