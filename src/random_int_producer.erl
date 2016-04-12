@@ -12,33 +12,30 @@
 
 -author("anoskov").
 
--export([push/1, push_async/1, start_service/1]).
--export([start_link/0, init/1, terminate/2, handle_call/3, handle_cast/2]).
+-export([push/1, start_service/1, start_service/0]).
+-export([start_link/0, init/1, terminate/2, handle_call/3, handle_cast/2, handle_info/2, code_change/3]).
 -export([generator/0, generate_rand_int/1]).
-
--record(redis_conf, {host, port, db}).
 
 -define(NUMBER_LIMIT, list_to_integer(os:getenv("NUMBER_LIMIT"))).
 -define(NUM_UPPER_BOUND, list_to_integer(os:getenv("NUM_UPPER_BOUND"))).
 
--define(REDIS_HOST, os:getenv("REDIS_HOST")).
--define(REDIS_PORT, list_to_integer(os:getenv("REDIS_PORT"))).
--define(REDIS_DB, list_to_integer(os:getenv("REDIS_DB"))).
 -define(REDIS_QUEUE_KEY, os:getenv("REDIS_QUEUE_KEY")).
 
 %% ===================================================================
 %% API
 %% ===================================================================
 
+start_service() ->
+  start_service(generator).
+
 start_service(Service) ->
   gen_server:call(?MODULE, { start, Service }).
 
+
 push(Number) ->
-  gen_server:call(?MODULE, { push, Number }).
-
-push_async(Number) ->
-  gen_server:cast(?MODULE, { push, Number }).
-
+  poolboy:transaction(storage_pool, fun(Worker) ->
+    gen_server:call(Worker, {lpush, ?REDIS_QUEUE_KEY, Number})
+  end).
 
 %% ===================================================================
 %% Callbacks
@@ -48,44 +45,38 @@ start_link() ->
   gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
 init(_Args) ->
-  io:format("Initializing producer server...~n"),
   process_flag(trap_exit, true),
-
-  RC = #redis_conf{host = ?REDIS_HOST, port = ?REDIS_PORT, db = ?REDIS_DB},
-  {ok, RedisPid} = eredis:start_link(RC#redis_conf.host, RC#redis_conf.port, RC#redis_conf.db),
-  register(redis, RedisPid),
-
+  log_record(info, "producer server started~n"),
   {ok, dict:new()}.
 
 handle_call({start, Service}, _From, State) ->
   case whereis(Service) of
     undefined ->
-      Pid = spawn_link(?MODULE, Service, []),
+      Pid = spawn_link(?MODULE, generator, []),
       register(Service, Pid),
+      log_record(info, io:format("service ~p is started!~n", [Service])),
       { reply, ok, State };
     _Pid ->
-      { reply, {error, "service already started!"}, State }
-  end;
-
-handle_call({push, Number}, _From, State) ->
-  case whereis(redis) of
-    undefined ->
-      { reply, {error, "redis process not found"}, State };
-    Pid ->
-      eredis:q(Pid, ["LPUSH", ?REDIS_QUEUE_KEY , Number]),
-      { reply, ok, State }
+      log_record(error, io:format("service ~p already started!~n", [Service])),
+      { reply, { error, io:format("service ~p already started!", [Service]) }, State }
   end.
 
-handle_cast({push, Number}, State) ->
-  case whereis(redis) of
-    undefined ->
-      io:format("Redis client not initialized or died");
-    Pid ->
-      eredis:q(Pid, ["LPUSH", ?REDIS_QUEUE_KEY , Number])
-  end,
-  { noreply, State }.
+handle_cast(_Msg, State) ->
+  {noreply, State}.
 
-terminate(shutdown, _State) -> ok.
+handle_info({info, Msg}, State) ->
+  io:format("Message from module \"~p\" : ~p~n", [?MODULE, Msg]),
+  {noreply, State};
+
+handle_info({error, Msg}, State) ->
+  error_logger:error_msg("An error occurred in module \"~p\" : ~p~n", [?MODULE, Msg]),
+  {noreply, State}.
+
+terminate(shutdown, _State) ->
+  ok.
+
+code_change(_OldVsn, State, _Extra) ->
+  {ok, State}.
 
 %% ===================================================================
 %% Functions
@@ -131,3 +122,6 @@ generate_rand_int(LB) -> LB + random:uniform(?NUM_UPPER_BOUND - LB).
 get_timestamp() ->
   {Mega, Sec, Micro} = os:timestamp(),
   (Mega*1000000 + Sec)*1000 + round(Micro/1000).
+
+log_record(Level, Msg) ->
+  self() ! {Level, Msg}.
