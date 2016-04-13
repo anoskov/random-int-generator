@@ -12,9 +12,9 @@
 
 -author("anoskov").
 
--export([push/1, start_service/1, start_service/0]).
--export([start_link/0, init/1, terminate/2, handle_call/3, handle_cast/2, handle_info/2, code_change/3]).
--export([generator/0, generate_rand_int/1]).
+-export([push/1, handle_number/2, start_service/0]).
+-export([start_link/0, init/1, terminate/2, handle_call/3, handle_cast/2, code_change/3]).
+-export([generator/1, generate_rand_int/1]).
 
 -define(NUMBER_LIMIT, list_to_integer(os:getenv("NUMBER_LIMIT"))).
 -define(NUM_UPPER_BOUND, list_to_integer(os:getenv("NUM_UPPER_BOUND"))).
@@ -26,16 +26,31 @@
 %% ===================================================================
 
 start_service() ->
-  start_service(generator).
-
-start_service(Service) ->
-  gen_server:call(?MODULE, { start, Service }).
+  gen_server:call(?MODULE, { start, generator }).
 
 
 push(Number) ->
   poolboy:transaction(storage_pool, fun(Worker) ->
     gen_server:call(Worker, {lpush, ?REDIS_QUEUE_KEY, Number})
   end).
+
+handle_number(Number, Count) ->
+  case Count >= ?NUMBER_LIMIT of
+    false ->
+      push(Number),
+      whereis(generator) ! {ok, Count};
+    true ->
+      push(Number),
+      case ets:lookup(?MODULE, startIterTs) of
+        [{_Key, StartIterTs}] ->
+          SleepTime = 1000 - (get_timestamp() - StartIterTs),
+          io:format("sleep time is ~p ", [SleepTime]),
+          ets:insert(?MODULE, {startIterTs, get_timestamp() + SleepTime}),
+          whereis(generator) ! {sleep, SleepTime};
+        [] ->
+          ok
+      end
+  end.
 
 %% ===================================================================
 %% Callbacks
@@ -46,30 +61,22 @@ start_link() ->
 
 init(_Args) ->
   process_flag(trap_exit, true),
-  log_record(info, "producer server started~n"),
+  ets:new(?MODULE, [named_table, public]),
+
   {ok, dict:new()}.
 
-handle_call({start, Service}, _From, State) ->
-  case whereis(Service) of
+handle_call({start, generator}, _From, State) ->
+  case whereis(generator) of
     undefined ->
-      Pid = spawn_link(?MODULE, generator, []),
-      register(Service, Pid),
-      log_record(info, io:format("service ~p is started!~n", [Service])),
+      ets:insert(?MODULE, {startIterTs, get_timestamp()}),
+      Pid = spawn_link(?MODULE, generator, [0]),
+      register(generator, Pid),
       { reply, ok, State };
     _Pid ->
-      log_record(error, io:format("service ~p already started!~n", [Service])),
-      { reply, { error, io:format("service ~p already started!", [Service]) }, State }
+      { reply, { error, io:format("service ~p already started!", [generator]) }, State }
   end.
 
 handle_cast(_Msg, State) ->
-  {noreply, State}.
-
-handle_info({info, Msg}, State) ->
-  io:format("Message from module \"~p\" : ~p~n", [?MODULE, Msg]),
-  {noreply, State};
-
-handle_info({error, Msg}, State) ->
-  error_logger:error_msg("An error occurred in module \"~p\" : ~p~n", [?MODULE, Msg]),
   {noreply, State}.
 
 terminate(shutdown, _State) ->
@@ -82,46 +89,20 @@ code_change(_OldVsn, State, _Extra) ->
 %% Functions
 %% ===================================================================
 
-generator() ->
+generator(Count) ->
+  handle_number(generate_rand_int(2), Count+1),
   receive
-%%    {CtrlPid, {ok, Count}} ->
-%%      CtrlPid ! {self(), {generate_rand_int(2), Count+1}},
-%%      generator(CtrlPid);
-%%    {CtrlPid, {sleep, Time}} ->
-%%      timer:sleep(Time),
-%%      CtrlPid ! {self(), {generate_rand_int(2), 1}},
-%%      generator(CtrlPid);
+    {ok, NewCount} ->
+      generator(NewCount);
+    {sleep, Time} ->
+      timer:sleep(Time),
+      generator(0);
     _ ->
-      ok,
-      generator()
+      ok
   end.
-
-%%controller(PusherPid) ->
-%%  receive
-%%    {run, GeneratorPid} ->
-%%      put(startIterationTimestamp, get_timestamp()),
-%%      GeneratorPid ! {self(), {ok, 0}},
-%%      controller(PusherPid);
-%%    {From, {Number, Count}} ->
-%%      case Count >= ?NUMBER_LIMIT of
-%%        false ->
-%%          PusherPid ! {push, Number},
-%%          From ! {self(), {ok, Count}};
-%%        true ->
-%%          PusherPid ! {push, Number},
-%%          SleepTime = 1000 - (get_timestamp() - erase(startIterationTimestamp)),
-%%          put(startIterationTimestamp, get_timestamp() + SleepTime),
-%%          From ! {self(), {sleep, SleepTime}}
-%%      end,
-%%      controller(PusherPid)
-%%  end.
-
 
 generate_rand_int(LB) -> LB + random:uniform(?NUM_UPPER_BOUND - LB).
 
 get_timestamp() ->
   {Mega, Sec, Micro} = os:timestamp(),
   (Mega*1000000 + Sec)*1000 + round(Micro/1000).
-
-log_record(Level, Msg) ->
-  self() ! {Level, Msg}.
