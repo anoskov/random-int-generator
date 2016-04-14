@@ -15,9 +15,19 @@
         {size, 5},
         {max_overflow, 10}
       ], [
+        {worker_name, random_int_storage},
         {host, "127.0.0.1"},
         {port, 6379},
         {db, 0}
+      ]},
+      {producer_pool, [
+        {size, 1},
+        {max_overflow, 1}
+      ], [
+        {worker_name, random_int_producer},
+        {number_limit, 3000},
+        {num_upper_bound, 50},
+        {redis_queue_key, "test1"}
       ]}
     ]}
   ]}
