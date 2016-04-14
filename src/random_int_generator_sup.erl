@@ -23,7 +23,7 @@ init([]) ->
   {ok, Pools} = application:get_env(random_int_generator, pools),
   PoolSpecs = lists:map(fun({Name, SizeArgs, WorkerArgs}) ->
     PoolArgs = [{name, {local, Name}},
-      {worker_module, random_int_storage}] ++ SizeArgs,
+      {worker_module, proplists:get_value(worker_name, WorkerArgs)}] ++ SizeArgs,
     poolboy:child_spec(Name, PoolArgs, WorkerArgs)
   end, Pools),
 
